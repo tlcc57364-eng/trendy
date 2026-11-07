@@ -127,7 +127,8 @@
   function render(data) {
     const hora = new Date(data.hora).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const hits = new Set(data.resultados.flatMap(r => r.encontradas));
-    const fallos = data.resultados.filter(r => r.error || r.status !== 200);
+    const okStatus = s => s >= 200 && s < 300;
+    const fallos = data.resultados.filter(r => r.error || !okStatus(r.status));
 
     if (hits.size) setStatus("alert", "🎁", "¡YA SALIÓ EL CALENDARIO DE ADVIENTO! Entra a comprar", `Encontré: ${[...hits].join(", ")} · ${hora}`);
     else if (fallos.length) setStatus("warn", "⚠️", "Alguna página no respondió bien", `Revisa los detalles abajo · ${hora}`);
@@ -137,12 +138,16 @@
 
     $("urlsCard").classList.remove("hidden");
     $("urls").innerHTML = data.resultados.map(r => {
-      const good = r.status === 200 && !r.error;
+      const good = okStatus(r.status) && !r.error;
       const nota = r.error ? `Error: ${r.error}` : r.status === 403 ? "La tienda está bloqueando la petición (403)." :
+        r.productos ? (r.productos.length
+          ? r.productos.map(p => `🛍️ ${p.nombre}${typeof p.precio === "number" ? " · $" + p.precio.toLocaleString("es-CO") : ""}`).join("  ")
+          : "Catálogo de la tienda: todavía no hay productos con esas palabras.") :
         r.encontradas.length ? `Palabras encontradas: ${r.encontradas.join(", ")}` : "Ninguna palabra clave encontrada.";
+      const destino = r.productos?.[0]?.link || r.url;
       return `<div class="url">
         <span class="badge ${good ? "good" : "bad"}">${r.status || "ERROR"}</span>
-        <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a>
+        <a href="${esc(destino)}" target="_blank" rel="noopener">${esc(r.productos ? "Búsqueda en catálogo: " + (new URL(r.url).searchParams.get("ft") || r.url) : r.url)}</a>
         <div class="meta">${esc(nota)}</div>
       </div>`;
     }).join("");

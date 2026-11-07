@@ -11,7 +11,13 @@
 // Parámetros opcionales:
 //   &test=1  -> envía un mensaje de prueba a Telegram
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+// Si TARGET_URL no está definida, se vigila el catálogo de Trendy Shop (VTEX).
+const DEFAULT_URLS = [
+  "https://www.maquillajetrendyshop.com/api/catalog_system/pub/products/search?ft=calendario&_from=0&_to=49",
+  "https://www.maquillajetrendyshop.com/api/catalog_system/pub/products/search?ft=adviento&_from=0&_to=49",
+].join(",");
+
+const UA ="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 function lista(valor, porDefecto = "") {
   return (valor || porDefecto).split(",").map(s => s.trim()).filter(Boolean);
@@ -35,19 +41,48 @@ function limpiar(contenido) {
     .toLowerCase();
 }
 
+// Catálogo VTEX: la búsqueda devuelve una lista de productos en JSON.
+// Solo se miran los NOMBRES de los productos, así el menú o los banners no dan falsas alarmas.
+function productosVtex(datos) {
+  if (!Array.isArray(datos)) return null;
+  return datos.map(p => {
+    const oferta = p.items?.[0]?.sellers?.[0]?.commertialOffer || {};
+    return {
+      nombre: p.productName,
+      precio: oferta.Price,
+      stock: oferta.AvailableQuantity,
+      link: p.link,
+    };
+  });
+}
+
 async function revisar(url, keywords) {
   try {
     const r = await fetch(url, {
       headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" },
       signal: AbortSignal.timeout(8000),
     });
-    const texto = limpiar(await r.text());
+    const cuerpo = await r.text();
+
+    let productos = null;
+    try { productos = productosVtex(JSON.parse(cuerpo)); } catch {}
+
+    if (productos) {
+      const nombres = productos.map(p => (p.nombre || "").toLowerCase()).join(" | ");
+      const encontradas = keywords.filter(k => nombres.includes(k));
+      const coinciden = productos.filter(p => keywords.some(k => (p.nombre || "").toLowerCase().includes(k)));
+      return { url, status: r.status, tipo: "catalogo", encontradas, productos: coinciden };
+    }
+
+    const texto = limpiar(cuerpo);
     const encontradas = keywords.filter(k => texto.includes(k));
-    return { url, status: r.status, encontradas };
+    return { url, status: r.status, tipo: "pagina", encontradas };
   } catch (e) {
     return { url, status: 0, encontradas: [], error: String(e) };
   }
 }
+
+const precioCOP = n => (typeof n === "number" ? `$${n.toLocaleString("es-CO")}` : "");
 
 export default async function handler(req, res) {
   // Solo quien tenga la clave (el cron) puede hacer que se envíen mensajes a Telegram
@@ -56,7 +91,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "clave incorrecta" });
   }
 
-  const urls = lista(process.env.TARGET_URL);
+  const urls = lista(process.env.TARGET_URL, DEFAULT_URLS);
   const keywords = lista(process.env.KEYWORDS, "calendario,adviento,preventa").map(k => k.toLowerCase());
 
   if (!urls.length) {
@@ -69,9 +104,14 @@ export default async function handler(req, res) {
 
     if (autorizado && conHallazgos.length) {
       // Avisa en cada revisión (cada minuto) hasta pausar el cron
-      const detalle = conHallazgos
-        .map(r => `Encontré: ${r.encontradas.join(", ")}\n👉 ${r.url}`)
-        .join("\n\n");
+      const vistos = new Set();
+      const detalle = conHallazgos.map(r => {
+        if (!r.productos) return `Encontré: ${r.encontradas.join(", ")}\n👉 ${r.url}`;
+        return r.productos
+          .filter(p => !vistos.has(p.link) && vistos.add(p.link))
+          .map(p => `🛍️ ${p.nombre} ${precioCOP(p.precio)}${p.stock ? ` (stock: ${p.stock})` : ""}\n👉 ${p.link}`)
+          .join("\n\n");
+      }).filter(Boolean).join("\n\n");
       await telegram(`🎁🎄 ¡YA SALIÓ LA PREVENTA DEL CALENDARIO DE ADVIENTO!\n\n${detalle}`);
     }
 
