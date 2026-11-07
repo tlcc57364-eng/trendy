@@ -1,0 +1,12 @@
+{
+  "name": "monitor-preventa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "node --env-file=.env scripts/dev.js",
+    "local": "node --env-file=.env scripts/local-test.js",
+    "local:test": "node --env-file=.env scripts/local-test.js --test"
+  }
+}

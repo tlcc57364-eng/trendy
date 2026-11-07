@@ -1,0 +1,190 @@
+# Monitor de Preventa – Trendy Shop (Calendario de Adviento)
+
+## 1. Objetivo
+
+La tienda **Trendy Shop** abrirá la **preventa del calendario de adviento el martes**, pero no se sabe a qué hora.
+Necesito un sistema que **revise la tienda automáticamente cada minuto, 24/7, sin tener el computador encendido**, y que me **avise al celular por Telegram** apenas aparezca el producto o la preventa, para poder comprarlo de inmediato.
+
+> El sistema SOLO avisa. La compra la hago yo manualmente.
+
+## 2. Arquitectura
+
+```
+cron-job.org (cada 1 min)
+        │  GET /api/check?key=SECRET_KEY
+        ▼
+Vercel Serverless Function (api/check.js)
+        │  1. Descarga TARGET_URL (página de Trendy Shop)
+        │  2. Limpia el HTML y busca KEYWORDS
+        ▼
+Si encuentra alguna palabra clave → mensaje a Telegram (Bot API)
+```
+
+### ¿Por qué esta combinación?
+- **Vercel (plan gratis)** aloja la función, pero su cron gratis corre como máximo **1 vez al día**, así que no sirve para revisar cada minuto.
+- **cron-job.org** (gratis) llama a la URL de la función **cada minuto**. Así se logra el monitoreo constante.
+- **Telegram** permite notificaciones push inmediatas al celular, gratis.
+
+## 3. Estructura del repositorio
+
+```
+monitor-preventa/
+├── api/
+│   └── check.js        # Función serverless principal
+├── public/
+│   └── index.html      # Panel web: revisar ahora, enviar prueba, ver estado
+├── package.json
+├── .gitignore
+└── README.md           # (este archivo puede servir de README)
+```
+
+## 4. Código
+
+### `api/check.js`
+
+```js
+// Vercel Serverless Function: /api/check?key=TU_CLAVE
+// Variables de entorno en Vercel (Settings > Environment Variables):
+//   TARGET_URL, KEYWORDS (separadas por coma), TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, SECRET_KEY
+
+async function telegram(text) {
+  await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text }),
+  });
+}
+
+export default async function handler(req, res) {
+  // Evita que cualquiera dispare la función
+  if (req.query.key !== process.env.SECRET_KEY) {
+    return res.status(401).json({ error: "clave incorrecta" });
+  }
+
+  const url = process.env.TARGET_URL;
+  const keywords = (process.env.KEYWORDS || "calendario,adviento,preventa")
+    .split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
+
+  try {
+    const r = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124 Safari/537.36" },
+    });
+    const html = await r.text();
+    const texto = html
+      .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
+    const encontradas = keywords.filter(k => texto.includes(k));
+
+    if (encontradas.length) {
+      // Avisa en cada revisión (cada minuto) hasta pausar el cron
+      await telegram(`🚨 ¡YA SALIÓ! Encontré: ${encontradas.join(", ")}\n👉 ${url}`);
+    }
+
+    // Prueba: /api/check?key=TU_CLAVE&test=1
+    if (req.query.test) await telegram("✅ Prueba OK: el monitor está conectado.");
+
+    return res.status(200).json({ ok: true, status: r.status, encontradas, hora: new Date().toISOString() });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+}
+```
+
+### `package.json`
+
+```json
+{
+  "name": "monitor-preventa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" }
+}
+```
+
+### `.gitignore`
+
+```
+node_modules
+.env
+.vercel
+```
+
+## 5. Variables de entorno (Vercel → Settings → Environment Variables)
+
+| Variable | Ejemplo | Descripción |
+|---|---|---|
+| `TARGET_URL` | `https://trendyshop.../novedades` | Página que se va a vigilar (novedades, categoría o producto) |
+| `KEYWORDS` | `calendario,adviento,preventa,advent` | Palabras que disparan la alerta (separadas por coma) |
+| `TELEGRAM_TOKEN` | `123456:ABC-...` | Token del bot, lo da @BotFather |
+| `TELEGRAM_CHAT_ID` | `987654321` | Mi ID de Telegram, lo da @userinfobot |
+| `SECRET_KEY` | `algo-largo-y-secreto` | Clave para que nadie más pueda llamar la función |
+
+⚠️ Nunca subir tokens al repositorio. Solo van en las variables de entorno de Vercel.
+
+## 6. Pasos de configuración
+
+### Telegram
+1. Abrir **@BotFather**, escribir `/newbot` y guardar el **token**.
+2. Abrir **@userinfobot** y guardar el **chat ID**.
+3. Escribirle "hola" al bot nuevo (sin esto, el bot no puede enviarme mensajes).
+
+### Vercel
+1. Subir el proyecto a GitHub.
+2. En Vercel: **Add New → Project**, importar el repo y hacer Deploy.
+3. Agregar las variables de entorno y hacer **Redeploy**.
+4. Probar en el navegador: `https://<proyecto>.vercel.app/api/check?key=<SECRET_KEY>&test=1`
+   → debe llegar "✅ Prueba OK" a Telegram, y la respuesta JSON debe mostrar `status: 200`.
+
+### cron-job.org
+1. Crear una cuenta gratis.
+2. Crear un cron job con la URL `https://<proyecto>.vercel.app/api/check?key=<SECRET_KEY>`, programado **cada 1 minuto**.
+3. Activarlo desde el lunes en la noche.
+4. Cuando llegue la alerta y se haya comprado el calendario, **pausar el cron**.
+
+## 7. Verificaciones importantes antes del martes
+
+- [ ] **¿La tienda carga los productos con JavaScript?** Abrir la URL de `/api/check` y revisar el JSON. Otra forma: en el navegador, usar "Ver código fuente" y buscar nombres de productos. Si los productos NO aparecen en el HTML, la función no los "verá". En ese caso:
+  - Revisar si la tienda es **Shopify**. Si lo es, usar `https://<tienda>/products.json`, que trae todos los productos en JSON, y buscar las keywords ahí.
+  - Si usa otra plataforma (WooCommerce, VTEX, etc.), buscar su endpoint de productos en la pestaña **Network** de DevTools.
+- [ ] **Falsos positivos:** si la palabra "adviento" o "calendario" ya existe en la página (en el menú o un banner, por ejemplo), la alerta saltaría de inmediato. Ajustar `KEYWORDS` a algo más específico (por ejemplo, el nombre exacto del producto) o cambiar `TARGET_URL` a la página de la colección.
+- [ ] Confirmar que la respuesta tenga `status: 200` y no 403. Un 403 significa que la tienda bloquea la petición.
+- [ ] Hacer la prueba de Telegram con `&test=1`.
+
+## 8. Mejoras opcionales (si da tiempo)
+
+1. **Detectar cualquier cambio en la página**, no solo palabras clave. Para esto hay que guardar un hash del contenido entre ejecuciones, usando **Upstash Redis** (gratis, se integra con Vercel). Si el hash cambia, avisar con "👀 La página cambió".
+2. **Detectar productos nuevos:** con Shopify `products.json`, guardar la lista de IDs y avisar cuando aparezca uno nuevo, con nombre, precio y link directo.
+3. **Dejar de avisar automáticamente** después de N alertas, guardando un flag en Redis.
+4. **Monitorear varias URLs** con `TARGET_URL` como una lista separada por comas.
+
+## 9. Instagram y TikTok (fuera del alcance del código)
+
+La tienda anunciará la hora de la preventa en Instagram y TikTok. **No se automatiza por código** por tres razones: ambas plataformas bloquean servidores, las historias requieren sesión iniciada, y hay riesgo de bloqueo de cuenta.
+La solución es usar las notificaciones nativas:
+- **Instagram:** en el perfil de Trendy Shop, tocar la campanita 🔔 y activar Publicaciones, Historias, Reels y En vivo.
+- **TikTok:** en el perfil, tocar la campanita 🔔 y activar los avisos de videos y lives.
+
+## 10. Checklist del día de la preventa
+
+- [ ] Sesión iniciada en Trendy Shop, con dirección y método de pago guardados.
+- [ ] Sonido personalizado y sin silencio para el chat del bot en Telegram.
+- [ ] Cron activo en cron-job.org (revisar el historial de ejecuciones).
+- [ ] Notificaciones de Instagram y TikTok activas.
+- [ ] Celular cargado 🔋
+
+## 11. Cómo funciona sin clave y sin tener nada abierto
+
+- **La página** (`https://<proyecto>.vercel.app/`) es pública y **no pide clave**: al abrirla revisa la tienda y se actualiza sola cada minuto. Solo muestra el estado; **nunca envía mensajes**.
+- **Las alertas** las dispara **cron-job.org**, que llama cada minuto a `/api/check?key=<SECRET_KEY>`. Esa llamada ocurre en internet, entre cron-job.org y Vercel, así que **funciona 24/7 con el computador apagado y la página cerrada**. La clave solo se pone una vez, al crear el cron.
+
+## 12. Probar en el computador
+
+1. Copiar `.env.example` como `.env` y llenar los valores reales (sobre todo `TARGET_URL`).
+2. `npm run dev` y abrir **http://localhost:3000**. Abrir `index.html` con doble clic NO funciona: necesita el servidor.
+3. `npm run local:test` → envía el mensaje "✅ Prueba OK" a Telegram.
+
+> `TARGET_URL` acepta varias URLs separadas por coma (por ejemplo, la página de novedades y `/products.json` si la tienda es Shopify).
