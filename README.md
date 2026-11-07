@@ -118,7 +118,8 @@ node_modules
 | Variable | Ejemplo | Descripción |
 |---|---|---|
 | `TARGET_URL` | *(opcional, dejar vacía)* | Si no se define, se vigila el **catálogo VTEX** de maquillajetrendyshop.com buscando "calendario" y "adviento". Solo mira nombres de productos, así el menú ("Términos Calendario 2026") no da falsas alarmas |
-| `KEYWORDS` | `calendario,adviento,preventa,advent` | Palabras que disparan la alerta (separadas por coma) |
+| `KEYWORDS` | *(opcional, dejar vacía)* | Por defecto: calendario, adviento, advent, preventa, wonderland, luxury, baul, vinotinto (calendario Luxury "Wonderland", baúl vinotinto). Sin importar tildes |
+| `IGNORAR` | *(opcional)* | Productos que ya existen y no deben avisar. Por defecto: Iluminador Wonderland Glow, Kit Brochas Marmol Luxury, Baúl Mediano Negro |
 | `TELEGRAM_TOKEN` | `123456:ABC-...` | Token del bot, lo da @BotFather |
 | `TELEGRAM_CHAT_ID` | `987654321` | Mi ID de Telegram, lo da @userinfobot |
 | `SECRET_KEY` | `algo-largo-y-secreto` | Clave para que nadie más pueda llamar la función |
