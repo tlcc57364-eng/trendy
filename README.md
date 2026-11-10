@@ -206,3 +206,26 @@ Además del catálogo, el monitor revisa cada minuto **https://www.maquillajetre
 
 - Si el precio no es $200.000, el aviso lo indica.
 - Si José cambia algo a propósito y ya no se quiere el aviso de "cambio", actualizar `PAGINA_BASE` en `api/check.js`.
+
+## Monitor de AME Cosméticos (ame.com.co)
+
+Segundo monitor, para la caja que AME regala a los **50 primeros** (solo se paga el envío). La fecha y la hora se anuncian por redes.
+
+- **Función:** `api/ame.js` → `https://<proyecto>.vercel.app/api/ame?key=<SECRET_KEY>` (misma clave y mismo bot de Telegram que Trendy).
+- **Página de estado:** `https://<proyecto>.vercel.app/ame.html` (pública, no envía mensajes).
+- **cron-job.org:** crear un job nuevo, **cada 1 minuto**, con la URL de `/api/ame?key=...`. Pausar el de Trendy.
+- **Prueba:** `/api/ame?key=<SECRET_KEY>&test=1`, o en el computador `npm run ame` / `npm run ame:test`.
+
+AME es una tienda **Shopify**, así que se lee su catálogo en JSON. En cada revisión se mira:
+
+| Qué | Avisa cuando… |
+|---|---|
+| `/products.json` (catálogo público) | aparece un producto que no estaba el 10-nov-2026 (hoy hay 51) |
+| Colección `mystery-box` | se publica alguno de sus 4 productos, que hoy están ocultos |
+| `/collections.json` | sale una colección nueva o cambia la cantidad de productos de la Mystery Box |
+| Portada | aparece "caja", "box", "preventa", "mystery", "navidad", "50 primeros"… |
+
+- 🚨 **"¡YA SE PUEDE COMPRAR LA CAJA!"**: un producto nuevo está **disponible** y es la caja (por las palabras clave o por venir de la Mystery Box) o cuesta **$5.000 o menos**.
+- 👀 **"Novedad"**: cualquier otro cambio, como un producto nuevo agotado, una colección nueva o una palabra en la portada.
+- Los avisos se repiten **cada minuto** mientras dure la novedad. Para callar un producto o una colección que no interesa, pon su ID o handle en la variable `AME_IGNORAR` (separados por coma) y haz Redeploy.
+- Shopify responde **429** a `curl`, pero sí le responde al `fetch` de Node, que es el que usa Vercel.

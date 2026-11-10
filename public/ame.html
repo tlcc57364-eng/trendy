@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Monitor AME</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+<style>
+  :root {
+    --bg: #fbf4f6; --card: #ffffff; --text: #2b1820; --muted: #7d6370; --line: #efdde4;
+    --accent: #c2185b; --accent-text: #fff; --ok: #1e7a45; --ok-bg: #e4f3e9;
+    --alert: #c6311f; --alert-bg: #fdeae7; --warn: #a86400; --warn-bg: #fff3dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #170f13; --card: #22171c; --text: #f6e9ef; --muted: #bba2ae; --line: #3b2a32;
+      --accent: #ff6fa5; --accent-text: #170f13; --ok: #5bd18d; --ok-bg: #143224;
+      --alert: #ff7a68; --alert-bg: #3a1a16; --warn: #f2b45a; --warn-bg: #352712;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { border-bottom: 3px dashed var(--accent); margin-bottom: 24px; }
+  header h1 { margin: 0; font-size: 1.6rem; }
+  header p { margin: 4px 0 24px; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 1.05rem; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+  button { padding: 10px 16px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent);
+    color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .status { display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: 12px; background: var(--bg); }
+  .status .icon { font-size: 2rem; line-height: 1; }
+  .status strong { display: block; font-size: 1.15rem; }
+  .status span { color: var(--muted); font-size: .9rem; }
+  .status.ok { background: var(--ok-bg); } .status.ok strong { color: var(--ok); }
+  .status.alert { background: var(--alert-bg); } .status.alert strong { color: var(--alert); }
+  .status.warn { background: var(--warn-bg); } .status.warn strong { color: var(--warn); }
+  .status.alert .icon { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.2); } }
+  .item { border-top: 1px solid var(--line); padding: 12px 0; }
+  .item:first-child { border-top: 0; }
+  .item a { color: var(--accent); word-break: break-all; }
+  .meta { font-size: .85rem; color: var(--muted); }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: .8rem; font-weight: 700; margin-right: 6px; }
+  .badge.good { background: var(--ok-bg); color: var(--ok); } .badge.bad { background: var(--alert-bg); color: var(--alert); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: .85rem; color: var(--muted); }
+  .msg { margin: 12px 0 0; font-size: .9rem; color: var(--muted); }
+  ul.todo { margin: 0; padding-left: 20px; } ul.todo li { margin: 4px 0; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🎁 Monitor AME Cosméticos</h1>
+    <p>La caja para los 50 primeros (solo pagas el envío). El servidor revisa ame.com.co cada minuto y avisa por Telegram.</p>
+  </header>
+
+  <section class="card">
+    <h2>Estado</h2>
+    <div class="status" id="status">
+      <div class="icon">⏳</div>
+      <div><strong>Revisando la tienda…</strong><span>Un momento.</span></div>
+    </div>
+    <div class="card hidden" id="hallazgosCard" style="margin:16px 0 0">
+      <div id="hallazgos"></div>
+    </div>
+    <div class="row">
+      <button id="btnCheck">Revisar ahora</button>
+      <span class="meta" id="msg"></span>
+    </div>
+    <p class="msg">🔔 Las alertas a Telegram llegan solas, cada minuto, aunque esta página esté cerrada.</p>
+  </section>
+
+  <section class="card">
+    <h2>Qué se vigila</h2>
+    <div id="pasos"><div class="meta">Cargando…</div></div>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section class="card">
+    <h2>Checklist del día de la preventa</h2>
+    <ul class="todo">
+      <li>Cuenta creada en ame.com.co, con dirección guardada y método de pago a la mano.</li>
+      <li>Chat del bot en Telegram con sonido y sin silenciar.</li>
+      <li>Cron de AME activo en cron-job.org (y el de Trendy pausado).</li>
+      <li>Notificaciones de Instagram y TikTok de AME activadas 🔔.</li>
+      <li>Celular cargado 🔋 — son solo 50 cajas, ¡hay que ser rápida! 🏃‍♀️</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const cop = n => Number.isFinite(n) ? "$" + n.toLocaleString("es-CO") : "";
+
+  function setStatus(kind, icon, title, sub) {
+    $("status").className = "status " + kind;
+    $("status").innerHTML = `<div class="icon">${icon}</div><div><strong>${esc(title)}</strong><span>${esc(sub)}</span></div>`;
+  }
+
+  async function run() {
+    $("btnCheck").disabled = true;
+    $("msg").textContent = "Revisando…";
+    try {
+      const r = await fetch("/api/ame", { cache: "no-store" });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      render(data);
+    } catch (e) {
+      setStatus("warn", "⚠️", "No se pudo revisar", String(e.message || e));
+    } finally {
+      $("btnCheck").disabled = false;
+      $("msg").textContent = "Se actualiza sola cada minuto.";
+    }
+  }
+
+  function render(data) {
+    const hora = new Date(data.hora).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const fallos = data.pasos.filter(p => !p.ok);
+
+    if (data.estado === "comprable") setStatus("alert", "🛒", "¡YA SE PUEDE COMPRAR LA CAJA! Entra ya", hora);
+    else if (data.estado === "novedad") setStatus("warn", "👀", "Hay novedades en la tienda", `Mira los detalles abajo · ${hora}`);
+    else if (fallos.length) setStatus("warn", "⚠️", "Alguna revisión falló", `Mira los detalles abajo · ${hora}`);
+    else setStatus("ok", "🎀", "Todavía no hay caja", `Sin novedades · última revisión ${hora}`);
+
+    const items = [
+      ...data.productos.map(p => `<div class="item">${p.esCaja ? "🎁" : "🛍️"} <a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.nombre)}</a>
+        <div class="meta">${cop(p.precio)} · ${p.disponible ? "✅ disponible" : "❌ agotado"}${p.soloEnvio ? " · 💸 precio de solo envío" : ""}</div></div>`),
+      ...data.otros.map(o => `<div class="item">• ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener">${esc(o.texto)}</a>` : esc(o.texto)}</div>`),
+    ];
+    $("hallazgosCard").classList.toggle("hidden", !items.length);
+    $("hallazgos").innerHTML = items.join("");
+
+    const detalle = p => !p.ok ? `Error: ${p.error}` : {
+      "Catálogo": `${p.total} productos públicos · avisa si aparece uno nuevo`,
+      "Mystery Box": "Colección con productos ocultos · avisa en cuanto se publique alguno",
+      "Colecciones": `${p.total} colecciones · Mystery Box con ${p.mysteryOcultos ?? "?"} productos ocultos`,
+      "Portada": "Busca las palabras clave de abajo en la página de inicio",
+    }[p.nombre] + (p.hallazgos.length ? ` · ¡${p.hallazgos.length} novedad(es)!` : "");
+    $("pasos").innerHTML = data.pasos.map(p => `<div class="item"><span class="badge ${p.ok ? "good" : "bad"}">${p.ok ? "OK" : "ERROR"}</span>
+      <strong>${esc(p.nombre)}</strong><div class="meta">${esc(detalle(p))}</div></div>`).join("");
+    $("chips").innerHTML = data.keywords.map(k => `<span class="chip">${esc(k)}</span>`).join("");
+  }
+
+  $("btnCheck").addEventListener("click", run);
+  run();
+  setInterval(run, 60000);
+</script>
+</body>
+</html>

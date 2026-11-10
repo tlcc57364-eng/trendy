@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "node --env-file=.env scripts/dev.js",
     "local": "node --env-file=.env scripts/local-test.js",
-    "local:test": "node --env-file=.env scripts/local-test.js --test"
+    "local:test": "node --env-file=.env scripts/local-test.js --test",
+    "ame": "node --env-file=.env scripts/local-test.js --ame",
+    "ame:test": "node --env-file=.env scripts/local-test.js --ame --test"
   }
 }
