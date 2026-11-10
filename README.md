@@ -200,8 +200,8 @@ Además del catálogo, el monitor revisa cada minuto **https://www.maquillajetre
 | Estado | Qué significa | Aviso a Telegram |
 |---|---|---|
 | `comprable` | El producto tiene precio y stock → ya sale el carrito | 🚨 **cada minuto** |
-| `visible` | El producto ya es público pero sin stock o sin precio | 👀 cada 5 min |
-| `cambio` | Cambió el producto, la cuenta regresiva o su texto, o la página no responde | 👀 cada 5 min |
+| `visible` | El producto ya es público pero sin stock o sin precio | 👀 **cada minuto** |
+| `cambio` | Cambió el producto, la cuenta regresiva o su texto, o la página no responde | 👀 **cada minuto** |
 | `igual` | Como estaba el 9-nov | nada |
 
 - Si el precio no es $200.000, el aviso lo indica.
