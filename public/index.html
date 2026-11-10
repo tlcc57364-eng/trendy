@@ -82,6 +82,15 @@
     <p class="msg">🔔 Las alertas a Telegram llegan solas, cada minuto, aunque esta página esté cerrada.</p>
   </section>
 
+  <section class="card">
+    <h2>Página del calendario</h2>
+    <div class="status" id="pagStatus">
+      <div class="icon">🕯️</div>
+      <div><strong>Revisando la página…</strong><span>Un momento.</span></div>
+    </div>
+    <p class="msg"><a id="pagLink" href="https://www.maquillajetrendyshop.com/calendario-de-adviento" target="_blank" rel="noopener" style="color:var(--accent)">maquillajetrendyshop.com/calendario-de-adviento</a></p>
+  </section>
+
   <section class="card hidden" id="urlsCard">
     <h2>Páginas vigiladas</h2>
     <div id="urls"></div>
@@ -103,9 +112,9 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  function setStatus(kind, icon, title, sub) {
-    $("status").className = "status " + kind;
-    $("status").innerHTML = `<div class="icon">${icon}</div><div><strong>${esc(title)}</strong><span>${esc(sub)}</span></div>`;
+  function setStatus(kind, icon, title, sub, el = "status") {
+    $(el).className = "status " + kind;
+    $(el).innerHTML = `<div class="icon">${icon}</div><div><strong>${esc(title)}</strong><span>${esc(sub)}</span></div>`;
   }
 
   async function run() {
@@ -133,6 +142,14 @@
     if (hits.size) setStatus("alert", "🎁", "¡YA SALIÓ EL CALENDARIO DE ADVIENTO! Entra a comprar", `Encontré: ${[...hits].join(", ")} · ${hora}`);
     else if (fallos.length) setStatus("warn", "⚠️", "Alguna página no respondió bien", `Revisa los detalles abajo · ${hora}`);
     else setStatus("ok", "🎄", "Todavía no hay preventa", `Última revisión: ${hora}`);
+
+    const p = data.pagina, cop = n => typeof n === "number" ? " · $" + n.toLocaleString("es-CO") : "";
+    const prods = (p?.productos || []).filter(x => x.publico).map(x => `${x.nombre}${cop(x.precio)}${x.stock ? " · stock " + x.stock : ""}`).join(" / ");
+    if (!p || p.estado === "error") setStatus("warn", "⚠️", "No se pudo leer la página", p?.error || "", "pagStatus");
+    else if (p.estado === "comprable") setStatus("alert", "🛒", "¡YA SE PUEDE COMPRAR EN LA PÁGINA!", `${prods} · ${hora}`, "pagStatus");
+    else if (p.estado === "visible") setStatus("warn", "👀", "El producto ya es público, pero sin stock o sin precio", `${prods} · ${hora}`, "pagStatus");
+    else if (p.estado === "cambio") setStatus("warn", "👀", "La página cambió", `${p.cambios.join(" · ")} · ${hora}`, "pagStatus");
+    else setStatus("ok", "🎄", "Sin cambios: todavía no tiene precio ni carrito", `Producto ${p.config.productos.join(", ")} aún no público · ${hora}`, "pagStatus");
 
     $("chips").innerHTML = data.keywords.map(k => `<span class="chip ${hits.has(k) ? "hit" : ""}">${esc(k)}</span>`).join("");
 

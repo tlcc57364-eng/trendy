@@ -89,6 +89,92 @@ async function revisar(url, keywords, ignorar) {
 
 const precioCOP = n => (typeof n === "number" ? `$${n.toLocaleString("es-CO")}` : "");
 
+// ───────────── Página del calendario (la que está montando José) ─────────────
+// La página es un bloque "adviento-product" de VTEX que muestra un producto del catálogo.
+// Hoy (9-nov-2026) está configurada con el producto 1047, que todavía NO es público:
+// por eso se ve "COMPRAR AHORA" pero sin precio ni carrito. Cuando lo activen,
+// el catálogo lo devolverá con precio y stock, y ahí ya se puede comprar.
+const PAGINA = `${TIENDA}/calendario-de-adviento`;
+const PRECIO_ESPERADO = 200000;
+
+// Cómo estaba la página el 9-nov-2026. Si algo de esto cambia, avisa "👀 la página cambió".
+const PAGINA_BASE = {
+  productos: ["1047"],
+  hideCountdown: true,
+  countdownText: "El Calendario de Adviento estará disponible muy pronto.",
+};
+
+// Lee la configuración de los bloques "adviento-product" dentro del HTML de la página.
+function leerPagina(html) {
+  const productos = new Set();
+  let hideCountdown = null, countdownText = null;
+  const marca = "adviento-product\"]";
+  for (let i = html.indexOf(marca); i !== -1; i = html.indexOf(marca, i + 1)) {
+    const tramo = html.slice(i, i + 3000);
+    const json = nombre => {
+      const m = tramo.match(new RegExp(`"${nombre}":(\\{[^{}]*\\})`));
+      try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
+    };
+    // "content" es lo que José configuró en el CMS; "props" es el valor por defecto del código
+    const cfg = { ...(json("props") || {}), ...(json("content") || {}) };
+    if (cfg.productId) productos.add(String(cfg.productId));
+    if ("hideCountdown" in cfg) hideCountdown = cfg.hideCountdown;
+    if (cfg.countdownText) countdownText = cfg.countdownText;
+  }
+  return { productos: [...productos], hideCountdown, countdownText };
+}
+
+async function productoPorId(id) {
+  const r = await fetch(`${TIENDA}/api/catalog_system/pub/products/search?fq=productId:${id}`, {
+    headers: { "User-Agent": UA }, signal: AbortSignal.timeout(8000),
+  });
+  const p = productosVtex(await r.json())?.[0];
+  if (!p) return { id, publico: false };
+  return { ...p, publico: true, comprable: Number(p.stock) > 0 && Number(p.precio) > 0, prueba: /prueba/i.test(p.nombre) };
+}
+
+async function revisarPagina() {
+  try {
+    const r = await fetch(PAGINA, {
+      headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" }, signal: AbortSignal.timeout(8000),
+    });
+    const html = await r.text();
+    const config = leerPagina(html);
+    const productos = (await Promise.all(config.productos.map(productoPorId))).filter(p => !p.prueba);
+
+    const cambios = [];
+    if (r.status !== 200) cambios.push(`la página respondió ${r.status}`);
+    else if (!config.productos.length) cambios.push("ya no encuentro el bloque del producto en la página");
+    else {
+      if (config.productos.join() !== PAGINA_BASE.productos.join())
+        cambios.push(`el producto de la página cambió: ${PAGINA_BASE.productos.join(", ")} → ${config.productos.join(", ")}`);
+      if (config.hideCountdown !== PAGINA_BASE.hideCountdown)
+        cambios.push(config.hideCountdown ? "ocultaron la cuenta regresiva" : "activaron la cuenta regresiva ⏳");
+      if (config.countdownText !== PAGINA_BASE.countdownText)
+        cambios.push(`nuevo texto: "${config.countdownText ?? "(sin texto)"}"`);
+    }
+
+    const comprables = productos.filter(p => p.comprable);
+    const visibles = productos.filter(p => p.publico && !p.comprable);
+    const estado = comprables.length ? "comprable" : visibles.length ? "visible" : cambios.length ? "cambio" : "igual";
+    return { url: PAGINA, status: r.status, estado, config, productos, cambios };
+  } catch (e) {
+    return { url: PAGINA, status: 0, estado: "error", error: String(e), productos: [], cambios: [] };
+  }
+}
+
+function mensajePagina(p) {
+  const prod = x => `🛍️ ${x.nombre} ${precioCOP(x.precio)}${x.stock ? ` (stock: ${x.stock})` : ""}` +
+    (typeof x.precio === "number" && x.precio !== PRECIO_ESPERADO ? `\n⚠️ Ojo: el precio esperado era ${precioCOP(PRECIO_ESPERADO)}` : "");
+  if (p.estado === "comprable")
+    return `🚨🎁 ¡YA SE PUEDE COMPRAR EL CALENDARIO EN LA PÁGINA!\n\n${p.productos.filter(x => x.comprable).map(prod).join("\n")}\n\n👉 ${PAGINA}`;
+  if (p.estado === "visible")
+    return `👀 El producto del calendario ya es público, pero todavía sin stock / sin precio:\n\n${p.productos.filter(x => x.publico).map(prod).join("\n")}\n\n👉 ${PAGINA}`;
+  if (p.estado === "cambio")
+    return `👀 La página del calendario cambió:\n• ${p.cambios.join("\n• ")}\n\n👉 ${PAGINA}`;
+  return null;
+}
+
 export default async function handler(req, res) {
   // Solo quien tenga la clave (el cron) puede hacer que se envíen mensajes a Telegram
   const autorizado = Boolean(process.env.SECRET_KEY) && req.query.key === process.env.SECRET_KEY;
@@ -101,8 +187,15 @@ export default async function handler(req, res) {
   const urls = process.env.TARGET_URL ? lista(process.env.TARGET_URL) : keywords.map(urlBusqueda);
 
   try {
-    const resultados = await Promise.all(urls.map(u => revisar(u, keywords, ignorar)));
+    const [pagina, ...resultados] = await Promise.all([revisarPagina(), ...urls.map(u => revisar(u, keywords, ignorar))]);
     const conHallazgos = resultados.filter(r => r.encontradas.length);
+
+    // "Ya se puede comprar" avisa cada minuto. Los cambios menores, cada 5 minutos, para no llenar el chat.
+    const textoPagina = mensajePagina(pagina);
+    const minuto = new Date().getUTCMinutes();
+    if (autorizado && textoPagina && (pagina.estado === "comprable" || minuto % 5 === 0)) {
+      await telegram(textoPagina);
+    }
 
     if (autorizado && conHallazgos.length) {
       // Avisa en cada revisión (cada minuto) hasta pausar el cron
@@ -124,11 +217,13 @@ export default async function handler(req, res) {
         const nombre = r.tipo === "catalogo" ? `"${new URL(r.url).searchParams.get("ft")}"` : r.url;
         return `• ${nombre} → ${r.error ? `error: ${r.error}` : `status ${r.status}, ${r.encontradas.length ? "¡ENCONTRADO!" : "nada"}`}`;
       }).join("\n");
-      await telegram(`✅ Prueba OK: el monitor está conectado.\n\n${estado}`);
+      const resumenPagina = pagina.error ? `error: ${pagina.error}`
+        : `status ${pagina.status}, producto ${pagina.config.productos.join(", ") || "?"}, estado: ${pagina.estado}`;
+      await telegram(`✅ Prueba OK: el monitor está conectado.\n\n${estado}\n\n📄 Página del calendario → ${resumenPagina}`);
     }
 
     res.setHeader("Cache-Control", "no-store");
-    return res.status(200).json({ ok: true, alertas: autorizado, hora: new Date().toISOString(), keywords, ignorar, resultados });
+    return res.status(200).json({ ok: true, alertas: autorizado, hora: new Date().toISOString(), keywords, ignorar, pagina, resultados });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e) });
   }

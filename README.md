@@ -189,3 +189,20 @@ La solución es usar las notificaciones nativas:
 3. `npm run local:test` → envía el mensaje "✅ Prueba OK" a Telegram.
 
 > `TARGET_URL` acepta varias URLs separadas por coma (por ejemplo, la página de novedades y `/products.json` si la tienda es Shopify).
+
+## 13. Vigilancia de la página del calendario (desde el 9-nov-2026)
+
+Además del catálogo, el monitor revisa cada minuto **https://www.maquillajetrendyshop.com/calendario-de-adviento**.
+
+- La página es un bloque `adviento-product` de VTEX configurado con el **producto 1047**, que todavía no es público. Por eso se ve "COMPRAR AHORA" pero sin precio ni carrito. (El 1016 que aparece en el código es una "Unidad De Prueba Ecommerce" y se ignora).
+- El monitor lee qué producto tiene la página y lo busca en el catálogo (`fq=productId:<id>`):
+
+| Estado | Qué significa | Aviso a Telegram |
+|---|---|---|
+| `comprable` | El producto tiene precio y stock → ya sale el carrito | 🚨 **cada minuto** |
+| `visible` | El producto ya es público pero sin stock o sin precio | 👀 cada 5 min |
+| `cambio` | Cambió el producto, la cuenta regresiva o su texto, o la página no responde | 👀 cada 5 min |
+| `igual` | Como estaba el 9-nov | nada |
+
+- Si el precio no es $200.000, el aviso lo indica.
+- Si José cambia algo a propósito y ya no se quiere el aviso de "cambio", actualizar `PAGINA_BASE` en `api/check.js`.
