@@ -190,10 +190,9 @@ export default async function handler(req, res) {
     const [pagina, ...resultados] = await Promise.all([revisarPagina(), ...urls.map(u => revisar(u, keywords, ignorar))]);
     const conHallazgos = resultados.filter(r => r.encontradas.length);
 
-    // "Ya se puede comprar" avisa cada minuto. Los cambios menores, cada 5 minutos, para no llenar el chat.
+    // Cualquier novedad de la página (comprable, visible o cambio) avisa en cada revisión, es decir, cada minuto.
     const textoPagina = mensajePagina(pagina);
-    const minuto = new Date().getUTCMinutes();
-    if (autorizado && textoPagina && (pagina.estado === "comprable" || minuto % 5 === 0)) {
+    if (autorizado && textoPagina) {
       await telegram(textoPagina);
     }
 
