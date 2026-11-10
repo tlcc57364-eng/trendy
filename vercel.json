@@ -1,0 +1,6 @@
+{
+  "cleanUrls": true,
+  "functions": {
+    "api/ame.js": { "maxDuration": 30 }
+  }
+}

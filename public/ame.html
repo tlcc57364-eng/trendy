@@ -2,155 +2,310 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
+<meta name="theme-color" content="#000000">
 <title>Monitor AME</title>
+<meta name="description" content="Monitor en vivo de la caja de AME Cosméticos para los 50 primeros.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
 <style>
-  :root {
-    --bg: #fbf4f6; --card: #ffffff; --text: #2b1820; --muted: #7d6370; --line: #efdde4;
-    --accent: #c2185b; --accent-text: #fff; --ok: #1e7a45; --ok-bg: #e4f3e9;
-    --alert: #c6311f; --alert-bg: #fdeae7; --warn: #a86400; --warn-bg: #fff3dc;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #170f13; --card: #22171c; --text: #f6e9ef; --muted: #bba2ae; --line: #3b2a32;
-      --accent: #ff6fa5; --accent-text: #170f13; --ok: #5bd18d; --ok-bg: #143224;
-      --alert: #ff7a68; --alert-bg: #3a1a16; --warn: #f2b45a; --warn-bg: #352712;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
-  header { border-bottom: 3px dashed var(--accent); margin-bottom: 24px; }
-  header h1 { margin: 0; font-size: 1.6rem; }
-  header p { margin: 4px 0 24px; color: var(--muted); }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
-  .card h2 { margin: 0 0 12px; font-size: 1.05rem; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
-  button { padding: 10px 16px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent);
-    color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; }
-  button:disabled { opacity: .55; cursor: wait; }
-  .status { display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: 12px; background: var(--bg); }
-  .status .icon { font-size: 2rem; line-height: 1; }
-  .status strong { display: block; font-size: 1.15rem; }
-  .status span { color: var(--muted); font-size: .9rem; }
-  .status.ok { background: var(--ok-bg); } .status.ok strong { color: var(--ok); }
-  .status.alert { background: var(--alert-bg); } .status.alert strong { color: var(--alert); }
-  .status.warn { background: var(--warn-bg); } .status.warn strong { color: var(--warn); }
-  .status.alert .icon { animation: pulse 1s ease-in-out infinite; }
-  @keyframes pulse { 50% { transform: scale(1.2); } }
-  .item { border-top: 1px solid var(--line); padding: 12px 0; }
-  .item:first-child { border-top: 0; }
-  .item a { color: var(--accent); word-break: break-all; }
-  .meta { font-size: .85rem; color: var(--muted); }
-  .badge { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: .8rem; font-weight: 700; margin-right: 6px; }
-  .badge.good { background: var(--ok-bg); color: var(--ok); } .badge.bad { background: var(--alert-bg); color: var(--alert); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .chip { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: .85rem; color: var(--muted); }
-  .msg { margin: 12px 0 0; font-size: .9rem; color: var(--muted); }
-  ul.todo { margin: 0; padding-left: 20px; } ul.todo li { margin: 4px 0; }
-  .hidden { display: none; }
+  .hero { padding: 64px 0 32px; }
+  .hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+  .hero-copy { display: flex; flex-direction: column; gap: 24px; align-items: flex-start; padding-top: 16px; }
+  @media (max-width: 900px) { .hero { padding: 24px 0 16px; } .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 32px; } .estado-wrap { order: -1; } }
+
+  /* Panel de estado */
+  .estado { border: 1px solid var(--hairline); border-radius: var(--r-panel); padding: 32px; display: flex; flex-direction: column; gap: 24px; transition: border-color .3s var(--ease); position: relative; overflow: hidden; }
+  @media (max-width: 640px) { .estado { padding: 24px; } }
+  .estado-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .estado-titulo { font: 400 clamp(36px, 5vw, 52px)/1.05 var(--serif); color: var(--white); margin: 0; letter-spacing: -.01em; }
+  .estado-sub { margin: 0; color: var(--ash); }
+  .estado[data-estado="stock"] { border-color: var(--green); animation: alerta 1.2s var(--ease) infinite; }
+  .estado[data-estado="sin-stock"] { border-color: var(--amber); }
+  .estado[data-estado="novedad"] { border-color: var(--sky); }
+  .estado[data-estado="error"] { border-color: var(--red); }
+  @keyframes alerta { 50% { box-shadow: 0 0 0 6px rgba(58, 211, 137, .18); } }
+  .quedan { display: flex; align-items: baseline; gap: 12px; }
+  .quedan b { font: 400 clamp(72px, 12vw, 120px)/1 var(--serif); color: var(--green); letter-spacing: -.02em; }
+  .quedan span { color: var(--bone); font-size: 18px; }
+  .comprar { width: 100%; padding: 18px; font-size: 18px; }
+  .acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+  .acciones .btn { flex: 1 1 auto; }
+
+  .producto { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 16px 0; border-top: 1px solid var(--hairline); }
+  .producto a.nombre { color: var(--white); font-weight: 500; }
+  .producto a.nombre:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .producto .info { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .paso { display: flex; flex-direction: column; gap: 12px; }
+  .paso-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .paso p { margin: 0; color: var(--ash); font-size: 14px; line-height: 1.5; }
+  .paso .valor { font: 400 32px/1 var(--serif); color: var(--white); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tiers { display: grid; gap: 0; }
+  .tier { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; padding: 20px 0; border-top: 1px solid var(--hairline); align-items: start; }
+  .tier:first-child { border-top: 0; padding-top: 0; }
+  .tier p { margin: 0; color: var(--ash); }
+  .tier h3 { margin: 0 0 4px; font: 500 16px/1.4 var(--sans); color: var(--white); }
+  @media (max-width: 480px) { .tier { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+
+  .todo { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  .todo li { border-top: 1px solid var(--hairline); }
+  .todo li:first-child { border-top: 0; }
+  .todo label { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; cursor: pointer; color: var(--bone); }
+  .todo input { appearance: none; width: 18px; height: 18px; border: 1px solid var(--iron); border-radius: 4px; margin: 2px 0 0; flex: none; display: grid; place-items: center; cursor: pointer; transition: background .15s var(--ease), border-color .15s var(--ease); }
+  .todo input:checked { background: var(--white); border-color: var(--white); }
+  .todo input:checked::after { content: ""; width: 9px; height: 5px; border: 2px solid var(--void); border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
+  .todo input:checked + span { color: var(--iron); text-decoration: line-through; }
+
+  #log { max-height: 280px; overflow-y: auto; }
 </style>
 </head>
 <body>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/"><span class="brand-mark"></span>Monitor de Preventas</a>
+    <nav class="nav-links" aria-label="Principal">
+      <a href="/" class="hide-sm">Inicio</a>
+      <a href="/trendy">Trendy</a>
+      <a href="/ame" aria-current="page">AME</a>
+      <a class="btn btn-sm hide-sm" href="https://ame.com.co" target="_blank" rel="noopener">Ir a la tienda</a>
+    </nav>
+  </div>
+</header>
+
 <main>
-  <header>
-    <h1>🎁 Monitor AME Cosméticos</h1>
-    <p>La caja para los 50 primeros (solo pagas el envío). El servidor revisa ame.com.co cada minuto y avisa por Telegram.</p>
-  </header>
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+        <span class="pill rise"><span class="dot green live"></span><span class="mono" style="font-size:13px">ame.com.co</span> · monitor en vivo</span>
+        <h1 class="display rise d1">La caja de <em>AME</em>.</h1>
+        <p class="lead rise d2">Solo para los 50 primeros, que pagan únicamente el envío. El servidor revisa la tienda cada 7 segundos y te avisa por Telegram apenas haya stock, aunque esta página esté cerrada.</p>
+        <div class="acciones rise d3" style="width:100%;max-width:440px">
+          <button class="btn" id="btnCheck" type="button">Revisar ahora</button>
+          <button class="btn" id="btnAvisos" type="button">🔔 Activar sonido aquí</button>
+        </div>
+        <p class="caption rise d4" id="avisosNota" style="margin:-8px 0 0">Opcional: con esta página abierta suena una alarma y aparece una notificación del navegador.</p>
+      </div>
 
-  <section class="card">
-    <h2>Estado</h2>
-    <div class="status" id="status">
-      <div class="icon">⏳</div>
-      <div><strong>Revisando la tienda…</strong><span>Un momento.</span></div>
+      <div class="rise d2 estado-wrap">
+      <div class="estado" id="estado" data-estado="cargando" aria-live="polite">
+        <div class="estado-top">
+          <span class="badge" id="estadoBadge"><span class="dot amber live"></span>conectando</span>
+          <span class="caption mono" id="estadoHora"></span>
+        </div>
+        <div id="estadoCuerpo">
+          <h2 class="estado-titulo">Revisando la tienda…</h2>
+          <p class="estado-sub">Un momento.</p>
+        </div>
+        <div id="productos"></div>
+      </div>
+      </div>
     </div>
-    <div class="card hidden" id="hallazgosCard" style="margin:16px 0 0">
-      <div id="hallazgos"></div>
-    </div>
-    <div class="row">
-      <button id="btnCheck">Revisar ahora</button>
-      <span class="meta" id="msg"></span>
-    </div>
-    <p class="msg">🔔 Las alertas a Telegram llegan solas, cada minuto, aunque esta página esté cerrada.</p>
   </section>
 
-  <section class="card">
-    <h2>Qué se vigila</h2>
-    <div id="pasos"><div class="meta">Cargando…</div></div>
-    <div class="chips" id="chips"></div>
+  <section class="section" style="padding-top:48px">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Qué se vigila</p>
+        <h2 class="h2">Cuatro ojos sobre la tienda.</h2>
+      </div>
+      <div class="grid grid-4" id="pasos">
+        <div class="card paso reveal"><div class="paso-top"><span class="h3">Catálogo</span><span class="dot"></span></div><p>Cargando…</p></div>
+        <div class="card paso reveal"><div class="paso-top"><span class="h3">Mystery Box</span><span class="dot"></span></div><p>Cargando…</p></div>
+        <div class="card paso reveal"><div class="paso-top"><span class="h3">Colecciones</span><span class="dot"></span></div><p>Cargando…</p></div>
+        <div class="card paso reveal"><div class="paso-top"><span class="h3">Portada</span><span class="dot"></span></div><p>Cargando…</p></div>
+      </div>
+      <div class="card reveal" style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
+        <span class="caption mono">palabras que delatan la caja</span>
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
   </section>
 
-  <section class="card">
-    <h2>Checklist del día de la preventa</h2>
-    <ul class="todo">
-      <li>Cuenta creada en ame.com.co, con dirección guardada y método de pago a la mano.</li>
-      <li>Chat del bot en Telegram con sonido y sin silenciar.</li>
-      <li>Cron de AME activo en cron-job.org (y el de Trendy pausado).</li>
-      <li>Notificaciones de Instagram y TikTok de AME activadas 🔔.</li>
-      <li>Celular cargado 🔋 — son solo 50 cajas, ¡hay que ser rápida! 🏃‍♀️</li>
-    </ul>
+  <section class="section">
+    <div class="wrap grid grid-2" style="align-items:start">
+      <div class="card reveal">
+        <p class="eyebrow">Cómo avisa por Telegram</p>
+        <div class="tiers">
+          <div class="tier"><span class="badge"><span class="dot red"></span>hay stock</span>
+            <div><h3>🚨📦 ¡Hay stock de la caja!</h3><p>Cuántas unidades quedan y un link de compra directa que deja la caja en el carrito. Es el aviso que importa: con Trendy llegó 10 minutos antes que las redes.</p></div></div>
+          <div class="tier"><span class="badge"><span class="dot amber"></span>sin stock</span>
+            <div><h3>👀 Publicaron la caja</h3><p>Ya es visible, pero todavía no se puede comprar. Prepárate.</p></div></div>
+          <div class="tier"><span class="badge"><span class="dot blue"></span>novedad</span>
+            <div><h3>👀 Algo cambió</h3><p>Un producto nuevo, una colección nueva o la portada hablando de la caja.</p></div></div>
+        </div>
+      </div>
+      <div class="term reveal">
+        <div class="term-bar"><i></i><i></i><i></i><span>registro de esta página</span></div>
+        <pre id="log"><span class="t-m">esperando la primera revisión…</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="card reveal" style="max-width:760px">
+        <p class="eyebrow">Checklist del día de la preventa</p>
+        <ul class="todo" id="todo">
+          <li><label><input type="checkbox"><span>Cuenta creada en ame.com.co, con la dirección guardada y el método de pago a la mano.</span></label></li>
+          <li><label><input type="checkbox"><span>Chat del bot en Telegram con sonido y sin silenciar.</span></label></li>
+          <li><label><input type="checkbox"><span>Cron de AME activo en cron-job.org (cada minuto), y el de Trendy pausado.</span></label></li>
+          <li><label><input type="checkbox"><span>Notificaciones de Instagram y TikTok de AME activadas 🔔. El viernes anuncian el día y la hora.</span></label></li>
+          <li><label><input type="checkbox"><span>Esta página abierta con el sonido activado, como respaldo.</span></label></li>
+          <li><label><input type="checkbox"><span>Celular cargado 🔋. Son solo 50: el link de compra directa ahorra pasos.</span></label></li>
+        </ul>
+      </div>
+    </div>
   </section>
 </main>
 
-<script>
-  const $ = id => document.getElementById(id);
-  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const cop = n => Number.isFinite(n) ? "$" + n.toLocaleString("es-CO") : "";
+<footer class="footer">
+  <div class="wrap">
+    <span>Monitor de Preventas · 2026</span>
+    <nav><a href="/">Inicio</a><a href="/trendy">Trendy</a></nav>
+  </div>
+</footer>
 
-  function setStatus(kind, icon, title, sub) {
-    $("status").className = "status " + kind;
-    $("status").innerHTML = `<div class="icon">${icon}</div><div><strong>${esc(title)}</strong><span>${esc(sub)}</span></div>`;
+<script type="module">
+  import { $, esc, cop, horaCorta } from "/app.js";
+
+  const ESTADOS = {
+    igual:       { dot: "green", badge: "vigilando",   titulo: "Todavía no hay caja.", sub: "Sin novedades en la tienda. El servidor sigue revisando." },
+    novedad:     { dot: "blue",  badge: "novedad",     titulo: "Algo cambió en la tienda.", sub: "Todavía no parece la caja, pero mira los detalles." },
+    "sin-stock": { dot: "amber", badge: "sin stock",   titulo: "Publicaron la caja.", sub: "Todavía sin stock. Prepárate: puede salir en cualquier momento." },
+    stock:       { dot: "red",   badge: "¡hay stock!", titulo: "¡HAY STOCK! Compra ya.", sub: "Solo los 50 primeros." },
+  };
+
+  // ── Avisos en esta página (sonido + notificación del navegador) ──
+  let avisos = false;
+  try { avisos = localStorage.getItem("ame-avisos") === "1"; } catch {}
+  let audio;
+  const pintarBoton = () => { $("btnAvisos").textContent = avisos ? "🔔 Sonido activado" : "🔔 Activar sonido aquí"; };
+  pintarBoton();
+  function pitar(veces = 3) {
+    if (!avisos) return;
+    try {
+      audio ||= new (window.AudioContext || window.webkitAudioContext)();
+      for (let i = 0; i < veces; i++) {
+        const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + i * 0.35;
+        o.type = "square"; o.frequency.value = i % 2 ? 1320 : 880;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+        o.connect(g).connect(audio.destination); o.start(t); o.stop(t + 0.3);
+      }
+    } catch {}
+  }
+  function notificar(titulo, cuerpo, link) {
+    if (!avisos || !("Notification" in window) || Notification.permission !== "granted") return;
+    try { const n = new Notification(titulo, { body: cuerpo, requireInteraction: true }); n.onclick = () => { focus(); if (link) open(link, "_blank"); }; } catch {}
+  }
+  $("btnAvisos").addEventListener("click", async () => {
+    avisos = !avisos;
+    try { localStorage.setItem("ame-avisos", avisos ? "1" : "0"); } catch {}
+    if (avisos && "Notification" in window && Notification.permission === "default") { try { await Notification.requestPermission(); } catch {} }
+    pintarBoton();
+    if (avisos) pitar(1);
+  });
+
+  // ── Checklist (se recuerda en este navegador) ──
+  const checks = [...document.querySelectorAll("#todo input")];
+  try { const g = JSON.parse(localStorage.getItem("ame-checklist") || "[]"); checks.forEach((c, i) => (c.checked = Boolean(g[i]))); } catch {}
+  checks.forEach(c => c.addEventListener("change", () => { try { localStorage.setItem("ame-checklist", JSON.stringify(checks.map(x => x.checked))); } catch {} }));
+
+  // ── Registro ──
+  const lineas = [];
+  function registrar(html) {
+    lineas.unshift(html);
+    lineas.length = Math.min(lineas.length, 30);
+    $("log").innerHTML = lineas.join("\n");
   }
 
-  async function run() {
+  const stockTexto = s => s === "sin límite" ? "sin límite" : Number.isFinite(s) ? s.toLocaleString("es-CO") : "?";
+  let anterior = null, temporizador;
+
+  function render(d) {
+    const e = ESTADOS[d.estado] || ESTADOS.igual;
+    $("estado").dataset.estado = d.estado;
+    $("estadoBadge").innerHTML = `<span class="dot ${e.dot} live"></span>${esc(e.badge)}`;
+    $("estadoHora").textContent = horaCorta(d.hora);
+
+    const disponibles = d.productos.filter(p => p.disponible && (p.esCaja || p.soloEnvio));
+    const principal = disponibles[0];
+    $("estadoCuerpo").innerHTML = d.estado === "stock" && principal ? `
+        <h2 class="estado-titulo">${esc(e.titulo)}</h2>
+        <div class="quedan" style="margin-top:16px"><b>${esc(stockTexto(principal.stock))}</b><span>${principal.stock === "sin límite" ? "" : "unidades quedan"}</span></div>
+        <a class="btn btn-solid comprar" style="margin-top:20px" href="${esc(principal.compraDirecta || principal.link)}" target="_blank" rel="noopener">🛒 Comprar ya</a><p class="caption" style="margin:10px 0 0;text-align:center">El link deja la caja en el carrito y te lleva directo a pagar.</p>`
+      : `<h2 class="estado-titulo">${esc(e.titulo)}</h2><p class="estado-sub" style="margin-top:12px">${esc(e.sub)}</p>`;
+
+    $("productos").innerHTML = [
+      ...d.productos.map(p => `<div class="producto">
+          <a class="nombre" href="${esc(p.link)}" target="_blank" rel="noopener">${p.esCaja ? "🎁" : "🛍️"} ${esc(p.nombre)}</a>
+          <span class="mono muted">${cop(p.precio)}</span>
+          <div class="info">
+            <span class="badge"><span class="dot ${p.disponible ? "green" : "red"}"></span>${p.disponible ? "disponible" : "agotado"}</span>
+            ${p.disponible && p.stock != null ? `<span class="badge">stock: ${esc(stockTexto(p.stock))}</span>` : ""}
+            ${p.soloEnvio ? `<span class="badge"><span class="dot violet"></span>solo envío</span>` : ""}
+          </div></div>`),
+      ...d.otros.map(o => `<div class="producto"><span>• ${o.link ? `<a class="nombre" href="${esc(o.link)}" target="_blank" rel="noopener">${esc(o.texto)}</a>` : esc(o.texto)}</span></div>`),
+    ].join("");
+
+    const detalle = {
+      "Catálogo": p => [p.total ?? "—", "productos públicos. Avisa si aparece uno nuevo."],
+      "Mystery Box": p => [p.hallazgos.length ? p.hallazgos.length : "4", p.hallazgos.length ? "productos publicados." : "productos ocultos. Avisa en cuanto se publique alguno."],
+      "Colecciones": p => [p.total ?? "—", `colecciones. Mystery Box con ${p.mysteryOcultos ?? "?"} productos.`],
+      "Portada": p => [p.encontradas?.length || 0, "palabras clave en la página de inicio."],
+    };
+    $("pasos").innerHTML = d.pasos.map(p => {
+      const [valor, texto] = p.ok ? detalle[p.nombre](p) : ["!", p.error];
+      const color = !p.ok ? "red" : p.hallazgos.length ? "amber" : "green";
+      return `<div class="card paso reveal in"><div class="paso-top"><span class="h3">${esc(p.nombre)}</span><span class="dot ${color}"></span></div>
+        <span class="valor">${esc(valor)}</span><p>${esc(texto)}</p></div>`;
+    }).join("");
+    $("chips").innerHTML = d.keywords.map(k => `<span class="badge">${esc(k)}</span>`).join("");
+
+    const color = { igual: "t-g", novedad: "t-b", "sin-stock": "t-a", stock: "t-r" }[d.estado] || "t-m";
+    registrar(`<span class="t-m">${esc(horaCorta(d.hora))}</span>  <span class="${color}">${esc(e.badge)}</span>  ` +
+      d.pasos.map(p => `<span class="${p.ok ? "t-b" : "t-r"}">${esc(p.nombre.toLowerCase())}</span>`).join(" "));
+
+    // Alarma local solo cuando el estado sube de nivel
+    const nivel = { igual: 0, novedad: 1, "sin-stock": 2, stock: 3 };
+    if (anterior !== null && nivel[d.estado] > nivel[anterior]) {
+      pitar(d.estado === "stock" ? 6 : 2);
+      notificar(d.estado === "stock" ? "🚨 ¡HAY STOCK DE LA CAJA DE AME!" : "👀 Novedad en AME", e.sub, principal?.compraDirecta);
+    }
+    if (d.estado === "stock") pitar(2);
+    anterior = d.estado;
+    document.title = d.estado === "stock" ? "🚨 ¡HAY STOCK! · AME" : d.estado === "sin-stock" ? "👀 Sin stock · AME" : "Monitor AME";
+  }
+
+  async function revisar() {
+    clearTimeout(temporizador);
     $("btnCheck").disabled = true;
-    $("msg").textContent = "Revisando…";
+    let estado = "igual";
     try {
       const r = await fetch("/api/ame", { cache: "no-store" });
-      const data = await r.json();
-      if (!data.ok) throw new Error(data.error || `HTTP ${r.status}`);
-      render(data);
-    } catch (e) {
-      setStatus("warn", "⚠️", "No se pudo revisar", String(e.message || e));
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || `HTTP ${r.status}`);
+      render(d);
+      estado = d.estado;
+    } catch (err) {
+      $("estado").dataset.estado = "error";
+      $("estadoBadge").innerHTML = `<span class="dot red"></span>error`;
+      $("estadoCuerpo").innerHTML = `<h2 class="estado-titulo">No se pudo revisar.</h2><p class="estado-sub" style="margin-top:12px">${esc(err.message || err)}. Las alertas de Telegram siguen funcionando aparte.</p>`;
+      registrar(`<span class="t-r">error</span> ${esc(err.message || err)}`);
     } finally {
       $("btnCheck").disabled = false;
-      $("msg").textContent = "Se actualiza sola cada minuto.";
+      // Más seguido cuando algo se mueve
+      temporizador = setTimeout(revisar, estado === "igual" ? 60000 : 15000);
     }
   }
 
-  function render(data) {
-    const hora = new Date(data.hora).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    const fallos = data.pasos.filter(p => !p.ok);
-
-    if (data.estado === "comprable") setStatus("alert", "🛒", "¡YA SE PUEDE COMPRAR LA CAJA! Entra ya", hora);
-    else if (data.estado === "novedad") setStatus("warn", "👀", "Hay novedades en la tienda", `Mira los detalles abajo · ${hora}`);
-    else if (fallos.length) setStatus("warn", "⚠️", "Alguna revisión falló", `Mira los detalles abajo · ${hora}`);
-    else setStatus("ok", "🎀", "Todavía no hay caja", `Sin novedades · última revisión ${hora}`);
-
-    const items = [
-      ...data.productos.map(p => `<div class="item">${p.esCaja ? "🎁" : "🛍️"} <a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.nombre)}</a>
-        <div class="meta">${cop(p.precio)} · ${p.disponible ? "✅ disponible" : "❌ agotado"}${p.soloEnvio ? " · 💸 precio de solo envío" : ""}</div></div>`),
-      ...data.otros.map(o => `<div class="item">• ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener">${esc(o.texto)}</a>` : esc(o.texto)}</div>`),
-    ];
-    $("hallazgosCard").classList.toggle("hidden", !items.length);
-    $("hallazgos").innerHTML = items.join("");
-
-    const detalle = p => !p.ok ? `Error: ${p.error}` : {
-      "Catálogo": `${p.total} productos públicos · avisa si aparece uno nuevo`,
-      "Mystery Box": "Colección con productos ocultos · avisa en cuanto se publique alguno",
-      "Colecciones": `${p.total} colecciones · Mystery Box con ${p.mysteryOcultos ?? "?"} productos ocultos`,
-      "Portada": "Busca las palabras clave de abajo en la página de inicio",
-    }[p.nombre] + (p.hallazgos.length ? ` · ¡${p.hallazgos.length} novedad(es)!` : "");
-    $("pasos").innerHTML = data.pasos.map(p => `<div class="item"><span class="badge ${p.ok ? "good" : "bad"}">${p.ok ? "OK" : "ERROR"}</span>
-      <strong>${esc(p.nombre)}</strong><div class="meta">${esc(detalle(p))}</div></div>`).join("");
-    $("chips").innerHTML = data.keywords.map(k => `<span class="chip">${esc(k)}</span>`).join("");
-  }
-
-  $("btnCheck").addEventListener("click", run);
-  run();
-  setInterval(run, 60000);
+  $("btnCheck").addEventListener("click", revisar);
+  revisar();
 </script>
 </body>
 </html>

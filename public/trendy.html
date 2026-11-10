@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#000000">
+<title>¡Logrado! · Trendy</title>
+<meta name="description" content="El monitor avisó del stock del Calendario de Adviento de Trendy 10 minutos antes que las redes.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<style>
+  #confeti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
+  .hero { padding: 72px 0 32px; }
+  .hero .wrap { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 32px; align-items: center; }
+  .hero-copy { display: flex; flex-direction: column; gap: 28px; align-items: flex-start; }
+  .stage { aspect-ratio: 1 / 1; width: 100%; }
+  .stage canvas { width: 100%; height: 100%; opacity: 0; transition: opacity 1.4s var(--ease); }
+  .stage canvas.ready { opacity: 1; }
+  @media (max-width: 900px) {
+    .hero { padding: 32px 0 16px; }
+    .hero .wrap { grid-template-columns: minmax(0, 1fr); }
+    .stage { order: -1; max-width: 340px; margin: 0 auto; }
+  }
+  .receipt { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--hairline); border-radius: var(--r-card); }
+  .receipt > div { padding: 24px; display: flex; flex-direction: column; gap: 8px; }
+  .receipt > div + div { border-left: 1px solid var(--hairline); }
+  .receipt b { font: 400 24px/1.2 var(--serif); color: var(--white); }
+  @media (max-width: 900px) {
+    .receipt { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .receipt > div:nth-child(3) { border-left: 0; }
+    .receipt > div:nth-child(n+3) { border-top: 1px solid var(--hairline); }
+  }
+  @media (max-width: 480px) {
+    .receipt { grid-template-columns: minmax(0, 1fr); }
+    .receipt > div + div { border-left: 0; border-top: 1px solid var(--hairline); }
+  }
+
+  .timeline { list-style: none; margin: 0; padding: 0; position: relative; }
+  .timeline::before { content: ""; position: absolute; left: 87px; top: 8px; bottom: 8px; width: 1px; background: var(--hairline); }
+  .timeline li { display: grid; grid-template-columns: 72px 32px minmax(0, 1fr); gap: 0; padding: 18px 0; align-items: start; }
+  .timeline time { font: 400 13px/1.5 var(--mono); color: var(--ash); padding-top: 1px; }
+  .timeline .node { width: 9px; height: 9px; border-radius: 50%; margin: 6px 0 0 11px; background: var(--void); border: 1px solid var(--iron); position: relative; z-index: 1; }
+  .timeline .node.green { background: var(--green); border-color: var(--green); box-shadow: 0 0 0 6px rgba(58, 211, 137, .12); }
+  .timeline .node.violet { background: var(--violet-glow); border-color: var(--violet-glow); }
+  .timeline h3 { margin: 0 0 4px; font: 500 16px/1.4 var(--sans); color: var(--white); }
+  .timeline p { margin: 0; color: var(--ash); font-size: 15px; }
+  .timeline li.key { background: linear-gradient(90deg, rgba(58, 211, 137, .06), transparent 70%); border-radius: var(--r-sm); }
+  .timeline .msg { margin-top: 12px; }
+  @media (max-width: 480px) {
+    .timeline::before { left: 71px; }
+    .timeline li { grid-template-columns: 56px 32px minmax(0, 1fr); }
+  }
+
+  .quote { font: 400 clamp(28px, 4vw, 44px)/1.2 var(--serif); color: var(--white); margin: 0; letter-spacing: -.01em; }
+  .quote em { color: var(--bone); }
+  .cta { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<canvas id="confeti" aria-hidden="true"></canvas>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/"><span class="brand-mark"></span>Monitor de Preventas</a>
+    <nav class="nav-links" aria-label="Principal">
+      <a href="/" class="hide-sm">Inicio</a>
+      <a href="/trendy" aria-current="page">Trendy</a>
+      <a href="/ame">AME</a>
+      <a class="btn btn-sm hide-sm" href="/ame">Abrir monitor</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+        <span class="pill rise"><span class="dot green"></span>Trendy Shop · completado</span>
+        <h1 class="display rise d1">¡Lo <em>logramos</em>!</h1>
+        <p class="lead rise d2">El Calendario de Adviento, edición Luxury, ya es tuyo. El monitor vio el stock antes de que la tienda lo anunciara, y llegaste a tiempo. ¡Felicitaciones! 🎉</p>
+        <div class="rise d3" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+          <button class="btn" id="otraVez" type="button">Celebrar otra vez 🎊</button>
+          <a class="link-chevron" href="/ame">Siguiente: la caja de AME</a>
+        </div>
+      </div>
+      <div class="stage" aria-hidden="true"><canvas id="cubo"></canvas></div>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:32px">
+    <div class="wrap">
+      <div class="receipt reveal">
+        <div><span class="caption mono">producto</span><b>Calendario de Adviento Luxury</b></div>
+        <div><span class="caption mono">tienda</span><b>Trendy Shop</b></div>
+        <div><span class="caption mono">fecha</span><b>10 nov 2026</b></div>
+        <div><span class="caption mono">estado</span><b style="display:flex;align-items:center;gap:10px"><span class="dot green"></span>Comprado</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Línea de tiempo · 10 de noviembre</p>
+        <h2 class="h2">Así se ganó.</h2>
+      </div>
+      <ol class="timeline reveal">
+        <li>
+          <time>07:00</time><span class="node"></span>
+          <div><h3>👀 Empiezan los cambios en la página</h3><p>Quien estaba montando la página del calendario hacía ajustes, y el monitor avisaba de cada uno.</p></div>
+        </li>
+        <li>
+          <time>luego</time><span class="node"></span>
+          <div><h3>👀 Publicado, pero sin stock</h3><p>El producto ya era público, pero todavía no se podía comprar. Los avisos se repetían cada minuto.</p></div>
+        </li>
+        <li class="key">
+          <time>10:05</time><span class="node green"></span>
+          <div>
+            <h3>🚨 ¡Hay stock!</h3>
+            <p>El aviso que de verdad sirvió. Nadie lo había anunciado todavía.</p>
+            <div class="term msg">
+              <div class="term-bar"><i></i><i></i><i></i><span>telegram</span></div>
+<pre><span class="t-a">🎁🎄 ¡YA SALIÓ LA PREVENTA DEL CALENDARIO DE ADVIENTO!</span>
+🛍️ Calendario de Adviento · edición Luxury
+<span class="t-g">(stock: 37.932)</span></pre>
+            </div>
+          </div>
+        </li>
+        <li>
+          <time>10:15</time><span class="node"></span>
+          <div><h3>📣 La tienda lo anuncia en redes</h3><p>Para entonces ya se habían vendido cerca de mil.</p></div>
+        </li>
+        <li>
+          <time>✓</time><span class="node violet"></span>
+          <div><h3>🛒 Comprado</h3><p>Con la alerta, y atenta también a las redes, llegó la compra.</p></div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="card reveal" style="display:flex;flex-direction:column;gap:32px">
+        <p class="eyebrow" style="margin:0">Lo que aprendimos</p>
+        <p class="quote">Los cambios avisan que algo viene.<br><em>El stock avisa que es ahora.</em></p>
+        <hr class="divider">
+        <div class="cta">
+          <p class="muted" style="margin:0;max-width:520px">Por eso el monitor de AME revisa cada 7 segundos, lee cuántas unidades quedan y manda un link que deja la caja ya en el carrito.</p>
+          <a class="btn" href="/ame">Ir al monitor de AME</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <span>Monitor de Preventas · 2026</span>
+    <nav><a href="/">Inicio</a><a href="/ame">AME</a></nav>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module">
+  import { $, caja3D, confeti } from "/app.js";
+  caja3D($("cubo"), { abierta: true });
+  setTimeout(() => confeti($("confeti")), 500);
+  $("otraVez").addEventListener("click", () => confeti($("confeti")));
+</script>
+</body>
+</html>

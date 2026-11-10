@@ -207,25 +207,36 @@ Además del catálogo, el monitor revisa cada minuto **https://www.maquillajetre
 - Si el precio no es $200.000, el aviso lo indica.
 - Si José cambia algo a propósito y ya no se quiere el aviso de "cambio", actualizar `PAGINA_BASE` en `api/check.js`.
 
+## Sitio (diseño de DESIGN.md: negro, bordes finos, acento violeta)
+
+| Ruta | Qué es |
+|---|---|
+| `/` | Portada: caja 3D (three.js r128), estado en vivo de AME y la lección de Trendy |
+| `/trendy` | "¡Lo logramos!": confeti y línea de tiempo de la compra (10-nov-2026) |
+| `/ame` | Monitor en vivo de AME: stock, link de compra directa, sonido y notificación del navegador, checklist |
+
+Estilos en `public/styles.css`, comportamiento en `public/app.js`. `vercel.json` activa URL limpias (`/ame` en vez de `/ame.html`) y le da 30 s a `api/ame.js`.
+Para probarlo local: `npm run dev` y abre http://localhost:3000.
+
 ## Monitor de AME Cosméticos (ame.com.co)
 
-Segundo monitor, para la caja que AME regala a los **50 primeros** (solo se paga el envío). La fecha y la hora se anuncian por redes.
+La caja para los **50 primeros**, que solo pagan el envío.
 
-- **Función:** `api/ame.js` → `https://<proyecto>.vercel.app/api/ame?key=<SECRET_KEY>` (misma clave y mismo bot de Telegram que Trendy).
-- **Página de estado:** `https://<proyecto>.vercel.app/ame.html` (pública, no envía mensajes).
-- **cron-job.org:** crear un job nuevo, **cada 1 minuto**, con la URL de `/api/ame?key=...`. Pausar el de Trendy.
+- **cron-job.org:** un job **cada 1 minuto** con `https://<proyecto>.vercel.app/api/ame?key=<SECRET_KEY>`. El de Trendy, pausado.
 - **Prueba:** `/api/ame?key=<SECRET_KEY>&test=1`, o en el computador `npm run ame` / `npm run ame:test`.
 
-AME es una tienda **Shopify**, así que se lee su catálogo en JSON. En cada revisión se mira:
+**Lección de Trendy:** el aviso que sirvió fue el de **stock** (10:05), 10 minutos antes que las redes (10:15). Por eso:
 
-| Qué | Avisa cuando… |
+- En cada llamada del cron, el monitor revisa **cada ~7 s durante ~25 s** (cron-job.org corta a los 30 s). Si aparece stock, avisa en ese instante.
+- **Stock exacto:** Shopify no lo publica, pero `/cart/add.js` con 99.999 unidades responde "solo se añadieron N artículos". Se consulta solo cuando la caja ya está disponible, en un carrito desechable que no reserva nada.
+- **Compra directa:** `https://ame.com.co/cart/<variante>:1` deja la caja en el carrito y lleva directo a pagar.
+
+| Aviso | Cuándo |
 |---|---|
-| `/products.json` (catálogo público) | aparece un producto que no estaba el 10-nov-2026 (hoy hay 51) |
-| Colección `mystery-box` | se publica alguno de sus 4 productos, que hoy están ocultos |
-| `/collections.json` | sale una colección nueva o cambia la cantidad de productos de la Mystery Box |
-| Portada | aparece "caja", "box", "preventa", "mystery", "navidad", "50 primeros"… |
+| 🚨📦 ¡HAY STOCK! | la caja (por palabras clave, por venir de la Mystery Box o por costar ≤ $5.000) está disponible, con cuántas quedan y el link de compra |
+| 👀 Publicaron la caja, sin stock | ya es visible, pero todavía agotada |
+| 👀 Novedad | producto nuevo, colección nueva, cambios en la Mystery Box o palabras clave en la portada |
 
-- 🚨 **"¡YA SE PUEDE COMPRAR LA CAJA!"**: un producto nuevo está **disponible** y es la caja (por las palabras clave o por venir de la Mystery Box) o cuesta **$5.000 o menos**.
-- 👀 **"Novedad"**: cualquier otro cambio, como un producto nuevo agotado, una colección nueva o una palabra en la portada.
-- Los avisos se repiten **cada minuto** mientras dure la novedad. Para callar un producto o una colección que no interesa, pon su ID o handle en la variable `AME_IGNORAR` (separados por coma) y haz Redeploy.
-- Shopify responde **429** a `curl`, pero sí le responde al `fetch` de Node, que es el que usa Vercel.
+Qué se mira: `/products.json` (51 productos al 10-nov-2026), la colección `mystery-box` (4 productos ocultos), `/collections.json` (64) y la portada.
+Los avisos se repiten cada minuto mientras dure la novedad. Para callar algo que no interesa, pon su ID o handle en `AME_IGNORAR` y haz Redeploy.
+Shopify responde 429 a `curl`, pero no al `fetch` de Node, que es el que usa Vercel.

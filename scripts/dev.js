@@ -1,7 +1,8 @@
 // Servidor local que imita a Vercel: sirve public/, /api/check y /api/ame.
-//   npm run dev   ->   abre http://localhost:3000 (Trendy) o http://localhost:3000/ame (AME)
+//   npm run dev   ->   abre http://localhost:3000 (inicio) · /trendy · /ame
 import http from "node:http";
 import { readFile } from "node:fs/promises";
+import { extname } from "node:path";
 import handler from "../api/check.js";
 import ame from "../api/ame.js";
 
@@ -21,10 +22,15 @@ http.createServer(async (req, res) => {
     return api(vreq, vres);
   }
 
-  const pagina = { "/": "index.html", "/index.html": "index.html", "/ame": "ame.html", "/ame.html": "ame.html" }[url.pathname];
-  if (pagina) {
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    return res.end(await readFile(new URL(`../public/${pagina}`, import.meta.url)));
+  // Archivos de public/ con URL limpias, como Vercel (cleanUrls): /ame -> public/ame.html
+  const TIPOS = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
+  const ruta = url.pathname === "/" ? "/index.html" : extname(url.pathname) ? url.pathname : `${url.pathname}.html`;
+  if (!ruta.includes("..") && TIPOS[extname(ruta)]) {
+    try {
+      const contenido = await readFile(new URL(`../public${ruta}`, import.meta.url));
+      res.setHeader("Content-Type", TIPOS[extname(ruta)]);
+      return res.end(contenido);
+    } catch {}
   }
 
   res.statusCode = 404;
